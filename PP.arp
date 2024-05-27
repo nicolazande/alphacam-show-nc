@@ -1,0 +1,906 @@
+$------------------------- POST -------------------------------------------
+START
+$5
+''-------------------------------------------------------------------------
+$12 MAIN PROGRAM LEADING LINES ''INIZIO MAIN'
+NOME: [FNAME]
+PARAMETRI: LX=[PANEL_X] LY=[PANEL_Y] LZ=[PANEL_Z]
+UTENSILI USATI: [NMT]
+OFFSET: XO=[XOFFSET] YO=[YOFFSET]
+INIZIO PROGRAMMA
+$15 MAIN PROGRAM TRAILING LINES   ''INIZIO MAIN
+$17 FILE TRAILING LINES           ''FINE MAIN
+FINE PROGRAMMA
+$-----------------------------RAPIDI----------------------------------------
+$20 MOVIMENTI IN RAPIDO IN XY ''RAPIDO IN XY
+$LET MON=MON+1 ''CONTATORE RAPIDI XY PER SETTARE G0 INIZIALE DA ORIGINE
+$LET ROUTER=1  ''INIZIALIZZA ROUTING (INDIPENDENTE)
+$LET ENGRAVE=1 ''INIZIALIZZA ENGRAVE (INDIPENDENTE)
+$LET DIST=SQR((AX-CX)**2+(AY-CY)**2+(AZ-CZ)**2) ''CALCOLO DISTANZA 3D
+$IF DIST>DIST_REF ''INIZIALIZZA NUOVA LAVORAZIONE SE DIST>DIST_REF (FIRSTRAPID E FIRSTWORK) --> NUOVA LAVORAZIONE
+$LET FIRSTRAPID=1 ''INIZIALIZZO RAPIDI G1 (DIPENDENTE)
+$LET FIRSTWORK=1 ''INIZIALIZZO MACHINING (DIPENDENTE)
+$ENDIF
+$IF PAT(1)>0 ''MULTIDRILL NON USO
+$GOTO 99
+$ELSEIF T=2  ''LAMA NON HA RAPIDO
+$GOTO 99
+$ELSEIF TT=4 ''DRILL NON HA RAPIDO
+$GOTO 99
+$ELSEIF LASTLAV=0 ''LAME E FORI SOLO G0 ANCHE SE DIST<DIST_REF
+$GOTO 30
+$ELSEIF DIST<DIST_REF ''VAI A G0 TO G1
+$GOTO 10
+$ELSEIF LRB=1 ''ULTIMO RAPIDO PRIMA DEL PATH (NIN SERVE)
+N[N] X[AX] Y[-AY+PANEL_Y] Z[CZ] G0
+$GOTO 99
+$ELSEIF FRA=1 ''PRIMO RAPIDO DOPO IL PATH (NON SERVE)
+N[N] X[AX] Y[-AY+PANEL_Y] Z[CZ] G0
+$GOTO 99
+$ENDIF
+$GOTO 99
+''--------- G0 TO G1 (MOVIMENTO A MANO) -----------------------------------
+$LL 10
+$IF FIRSTRAPID+FIRSTWORK=2 ''PRIMA LAVORAZIONE METTO HEADER
+$GOTO 20
+$ELSEIF FIRSTRAPID=1
+N[N] X[CX] Y[-CY+PANEL_Y] Z[CZ] G1''MOVIMENTO IN Z PER ALLINEARMI AL PIANO (SE NULLO MATLAB FILTRA)
+N[N] X[AX-DELTA] Y[-AY+PANEL_Y] Z[CZ] G1''AZ=CZ --> MOVIMENTO XY IN G1 (CON DELTA)
+$LET FIRSTRAPID=0
+$ELSE
+N[N] X[AX-DELTA] Y[-AY+PANEL_Y] Z[CZ] G1''AZ=CZ --> MOVIMENTO XY IN G1 (CON DELTA)
+$LET FIRSTRAPID=0
+$ENDIF
+$GOTO 99
+''------------------ ESCLUSIONE PRIMO RAPIDO (DA ORIGINE) ------------------
+$LL 20 
+$IF MON=1 ''LA MACCHINA DA ORIGINE SEMPRE IN RAPIDO --> MI POSIZIONO SU COORDINATE SUCCESSIVE
+N[N] X[AX-DELTA] Y[-AY+PANEL_Y] Z[CZ] G0 ''(MATLAB FILTRA MOVIMENTO NULLO)
+N[N] X[AX-DELTA] Y[-AY+PANEL_Y] Z=[CZ] TP=1 PRF=[-AZ] F=[F] VF=[F] S=[S] L=PON CHECKSPEED
+N[N] X[AX-DELTA] Y[-AY+PANEL_Y] Z[CZ] G1''(CON DELTA)
+$LET FIRSTRAPID=0
+$ELSE ''MI POSIZIONO SU COORDINATE CORRENTI
+N[N] X[CX-DELTA] Y[-CY+PANEL_Y] Z=[CZ] TP=1 PRF=[-AZ] F=[F] VF=[F] S=[S] L=PON CHECKSPEED
+N[N] X[AX-DELTA] Y[-AY+PANEL_Y] Z[CZ] G1''(CON DELTA)
+$LET FIRSTRAPID=0
+$ENDIF
+$GOTO 99
+''--------- (FORI E LAME) SOLO RAPIDO G0 E NO INLAV -------------------------
+$LL 30 
+$IF LRB=1 ''ULTIMO RAPIDO PRIMA DEL PATH
+N[N] X[AX] Y[-AY+PANEL_Y] Z[CZ] G0
+$GOTO 99
+$ELSEIF FRA=1 ''PRIMO RAPIDO DOPO IL PATH
+N[N] X[AX] Y[-AY+PANEL_Y] Z[CZ] G0
+$GOTO 99
+$ENDIF
+$GOTO 99
+''---------------------------------------------------------------------------
+$LL99 USCITA
+$----------------------------------------------------------------------------
+$21 MOVIMENTI IN RAPIDO IN XYZ ''NON USO XYZ INSIEME
+$----------------------- RAPIDO IN Z (ONLY) ---------------------------------
+$25 MOVIMENTI IN RAPIDO IN Z ''RAPIDO IN Z NON INIZIALIZZA ENGRAVE E ROUTER
+$IF PAT(1)>0 ''MULTIDRILL NON USO
+$GOTO 99
+$ELSEIF T=2  ''LAMA NON METTO RAPIDO
+$GOTO 99
+$ELSEIF TT=4 ''DRILL NON METTO RAPIDO
+$GOTO 99
+$ELSEIF LASTLAV=0 ''LAME E FORI SOLO G0 
+$GOTO 20
+$ELSEIF DIST<DIST_REF ''VAI A G0 TO G1
+$GOTO 10
+$ELSEIF LRB=1 ''ULTIMO RAPIDO PRIMA DEL PATH
+N[N] X[CX] Y[-CY+PANEL_Y] Z[AZ] G0
+$GOTO 99
+$ELSEIF FRA=1 ''PRIMO RAPIDO DOPO IL PATH
+N[N] X[CX] Y[-CY+PANEL_Y] Z[AZ] G0
+$GOTO 99
+$ENDIF
+$GOTO 99
+''------------ MOVIMENTO VERTICALE MANUALE (G0 TO G1) ------------------------
+$LL 10
+$IF FIRSTRAPID+FIRSTWORK=2 ''INIZIO LAVORAZIONE CON MOVIMENTO Z (MAI USATO)
+N[N] X[CX-DELTA] Y[-CY+PANEL_Y] Z=[CZ] TP=1 PRF=[-AZ] F=[F] VF=[F] S=[S] L=PON CHECKSPEED
+$LET FIRSTRAPID=0
+$ENDIF
+$IF (AZ-CZ)<0 ''RAPIDI VERSO IL BASSO NON LI SCRIVO
+N[N] X[CX] Y[-CY+PANEL_Y] Z[AZ] G0''LAVORAZIONI SUCCESSIVE
+$ELSEIF (AZ-CZ)>0 ''RAPIDI VERSO ALTO LI SCRIVO
+N[N] X[CX] Y[-CY+PANEL_Y] Z[AZ] G1''LAVORAZIONI SUCCESSIVE
+$ENDIF
+$GOTO 99
+''--------------- (FORI E LAME) SOLO RAPIDO G0 -------------------------------
+$LL 20
+$IF LRB=1 ''ULTIMO RAPIDO PRIMA DEL PATH
+N[N] X[CX] Y[-CY+PANEL_Y] Z[AZ] G0
+$GOTO 99
+$ELSEIF FRA=1 ''PRIMO RAPIDO DOPO IL PATH
+N[N] X[CX] Y[-CY+PANEL_Y] Z[AZ] G0
+$GOTO 99
+$ENDIF
+$GOTO 99
+''---------------------------------------------------------------------------
+$LL99 USCITA
+$----------------------------------------------------------------------------
+$30 LINES BEFORE A RAPID MOVE IF Z LEVELS ARE NOT USED EG LASER OR GEOMETRY 
+$----------------------------------------------------------------------------
+$35 LINES AFTER A RAPID MOVE IF Z LEVELS ARE NOT USED EG LASER OR GEOMETRY  
+$----------------------- MACHINING FEED MOVES -------------------------------
+$40  MACHINING FEED LINES ''FILTRO MOVIMENTI PICCOLI E PASSO A SWITCH(1000)
+$MODAL OFF X Y Z
+$LET D_X=ABS(AX-CX)
+$LET D_Y=ABS(AY-CY)
+$LET D_Z=ABS(AZ-CZ)
+$IF D_X>D_X_REF
+$GOTO 1000
+$ELSEIF D_Y>D_Y_REF
+$GOTO 1000
+$IF D_Z>D_Z_REF
+$GOTO 1000
+$ENDIF
+$GOTO 99
+''-------------------------------------------------------------------------
+$LL1000 ''SCELTA TIPO LAVORAZIONE (SWITCH) (DISTINGUO ROUTER E ENGRAVE)
+$MODAL OFF X Y Z
+$IF MOT=10  ''IF TRUE --> ENGRAVE
+$GOTO 10
+$ELSEIF T=1 ''IF TRUE --> ROUTING
+$GOTO 20
+$ELSEIF T=2 ''IF TRUE --> LAMA
+$GOTO 30
+$ENDIF
+$GOTO 99
+''------------------------ ENGRAVE ----------------------------------------
+$LL10
+$LET LASTLAV=1 ''SERVE INIZIO E FINE LAVORAZIONE
+$MODAL OFF X Y Z
+$ELSEIF ENGRAVE=1 ''PRIMO MOVIMENTO (IN Z LO SCRIVO PERCHE SERVE)
+$GOTO 100
+$ELSEIF ENGRAVE=2 ''MOVIMENTI SUCCESSIVI
+N[N] X[AX] Y[-AY+PANEL_Y] Z[AZ] G1
+$LET FIRSTWORK=0
+$ENDIF
+$GOTO 99
+''---------- MOVIMENTI IN Z-XY (HEADER SE FIRSTRAPID AND FIRSTWORK) ---------
+$LL 100
+$IF FIRSTRAPID+FIRSTWORK=2 ''PRF=-CZ PERCHE ADESSO FA ANCHE MOVIMENTO IN Z (IMPORTANTE)
+N[N] X[CX-DELTA] Y[-CY+PANEL_Y] Z=[CZ] TP=1 PRF=[-CZ] F=[F] VF=[F] S=[S] L=PON
+$ENDIF
+N[N] X[AX] Y[-AY+PANEL_Y] Z[AZ] G1
+$LET ENGRAVE=2
+$LET FIRSTWORK=0
+$GOTO 99
+''------------ STANDARD ROUTING (SOLO STANDARD LEAD-IN) -------------------
+$LL20
+$LET LASTLAV=1 ''SERVE INIZIO E FINE LAVORAZIONE
+$MODAL OFF X Y Z
+$IF ROUTER=1 ''MOVIMENTO IN Z (DISCESA FRESA)
+$GOTO 101
+$ELSEIF ROUTER=2 ''PRIMO MOVIMENTO RILEVANTE IN XY SERVE HEADER
+$GOTO 201
+$ELSEIF ROUTER=3 ''MOVIMENTI SUCCESSIVI                     
+N[N] X[AX] Y[-AY+PANEL_Y] Z[AZ] G1''SE NON è PRIMA LAVORAZIONE SOLO COORDINATE NUOVE
+$LET FIRSTWORK=0
+$ENDIF
+$GOTO 99
+''-------- MOVIMENTO IN Z (ONLY): SOLO SE DIST<DIST_REF -------------------
+$LL 101
+$IF FIRSTRAPID+FIRSTWORK=2
+''NON FARE NIENTE, SCARTA IL MOVIMENTO IN Z E INIZIA LAVORAZIONE IN XY
+$ELSEIF DIST<DIST_REF''INTERPOLO RAPIDI G1 PERCHE SONO GIA IN G1(G0)
+N[N] X[AX] Y[-AY+PANEL_Y] Z[AZ] G1
+$ENDIF
+$LET ROUTER=2
+$GOTO 99
+''--------- PRIMO MOVIMENTO IN XY, HEADER SE AND(FIRSTWORK,FIRSTLAV) ------
+$LL 201
+$IF FIRSTRAPID+FIRSTWORK=2 
+N[N] X[CX-DELTA] Y[-CY+PANEL_Y] Z=[CZ] TP=1 PRF=[-CZ] F=[F] VF=[F] S=[S] L=PON
+$ENDIF
+N[N] X[AX] Y[-AY+PANEL_Y] Z[AZ] G1
+$LET ROUTER=3
+$LET FIRSTWORK=0
+$GOTO 99
+''------------------- TAGLIO DI LAMA ---------------------------------------
+$LL30
+$LET LASTLAV=0
+$MODAL OFF X Y Z
+$IF FFP=1
+''LEAD-IN=0 --> FIRST FEED PATH (FILTRO)
+$ELSEIF LFP=1
+''LEAD-OUT=0 --> LAST FEED PATH (FILTRO)
+$ELSEIF WTA=0 ''DIREZIONE X (Y VARIA)
+N[N] YIN=[PANEL_Y-GCY] YF=[PANEL_Y-GAY] QX=[GAX] PRF=[-GAZ+79] VT=[5000] VF=[PANEL_Y-GAY]  L=G7
+$ELSEIF WTA=180
+N[N] YIN=[PANEL_Y-GCY] YF=[PANEL_Y-GAY] QX=[GAX] PRF=[-GAZ+79] VT=[5000] VF=[PANEL_Y-GAY]  L=G7
+$ELSE ''DIREZIONE Y (X VARIA)
+N[N] XIN=[GCX] XF=[GAX] QY=[PANEL_Y-GAY] PRF=[-GAZ+79] VT=[F/1000] VF=[F/1000]  L=G9
+$ENDIF
+$GOTO 99
+''---------------------------------------------------------------------------
+$LL99 USCITA ''FINE MACHINING FEED LINES
+$-----------------------------INTERPOLAZIONE CON ARCHI ----------------------
+$50 FEED CW ARC --> INTERPOLAZIONE ORARIA IN LAVORO ''ARCO ORARIO
+$LET LASTLAV=1 ''SERVE INIZIO E FINE LAVORAZIONE
+$MODAL OFF X Y Z
+$IF FF=1 ''FIRST FEED --> HEADER
+$GOTO 500
+$ELSE
+N[N] X[AX] Y[PANEL_Y-AY] Z[AZ] R-[R] G5
+$LET ROUTER=3 ''DOPO UN ARCO LE LINEE NON DEVONO AVERE HEADER
+$LET FIRSTWORK=0
+$ENDIF
+$GOTO 99
+''------------ PRIMO MOVIMENTO IN XY, HEADER SE AND(FIRSTWORK,FIRSTLAV) -----
+$LL 500
+$IF FIRSTRAPID+FIRSTWORK=2
+N[N] X[CX] Y[PANEL_Y-CY] Z=[CZ] TP=1 PRF=[-AZ] F=[F] VF=[F] S=[S] L=PON
+$ENDIF
+N[N] X[AX] Y[PANEL_Y-AY] Z[AZ] R-[R] G5
+$LET ROUTER=3
+$LET FIRSTWORK=0
+$GOTO 99
+''---------------------------------------------------------------------------
+$LL99 USCITA
+$----------------------------------------------------------------------------
+$60 FEED CCW ARC --> INTERPOLAZIONE ANTIORARIA IN LAVORO ''ARCO ANTIORARIO
+$LET LASTLAV=1 ''SERVE INIZIO E FINE LAVORAZIONE
+$MODAL OFF X Y Z
+$IF FF=1
+$GOTO 600
+$ELSE
+N[N] X[AX] Y[PANEL_Y-AY] Z[AZ] R[R] G4
+$LET ROUTER=3
+$LET FIRSTWORK=0
+$ENDIF
+$GOTO 99
+''--------- PRIMO MOVIMENTO IN XY, HEADER SE AND(FIRSTWORK,FIRSTLAV) --------
+$LL 600
+$IF FIRSTRAPID+FIRSTWORK=2  
+N[N] X[CX] Y[PANEL_Y-CY] Z=[CZ] TP=1 PRF=[-AZ] F=[F] VF=[F] S=[S] L=PON
+$ENDIF
+N[N] X[AX] Y[PANEL_Y-AY] Z[AZ] R[R] G4
+$LET ROUTER=3
+$LET FIRSTWORK=0
+$GOTO 99
+''---------------------------------------------------------------------------
+$LL99 USCITA
+$------------------------ CAMBIO TOOL (TOLGO VECCHIO) ------------------------
+$70 CANCEL CURRENT TOOL
+$IF LASTLAV=1 ''SOLO SE ULTIMA LAVORAZIONE ROUTING,ARC,ENGRAVE
+N[N] G0 L=POFF
+$ENDIF
+$LET LASTLAV=0 ''DOPO CAMBIO UTENSILE SEMPRE RAPIDI G0
+''---------------------------------------------------------------------------
+$75 CODE FOR CLOCXKWISE SPINDLE ROTATION
+M03
+''---------------------------------------------------------------------------
+$76 CODE FOR COUNTER-CLOCKWISE SPINDLE ROTATION
+M04
+''-------------------- CAMBIO TOOL (METTO NUOVO) ----------------------------
+$80 SELECT NEW TOOL 
+$IF T=1 ''FRESE (ANCHE FORI CON FRESA) --> NOMUT
+N[N] PAN=1 ST1="[TNM]" L=PCUA
+$LET FIRSTWORK=1 ''DOPO NUOVO TOOL AGGIORNO LAVORAZIONI --> SERVE HEADER
+$LET FIRSTRAPID=1 ''DOPO NUOVO TOOL AGGIORNO RAPIDI --> SERVE HEADER
+$ENDIF
+$LET LASTLAV=0 ''DOPO CAMBIO UTENSILE SEMPRE RAPIDI G0
+$-------------------------- SUBROUTINES ------------------------------------
+$90 CALL SUBROUTINE
+$MSG ALARM SUBROUTINES NOT CONFIGURED
+$----------------------------------------------------------------------------
+$100 BEGIN SUBROUTINE
+$----------------------------------------------------------------------------
+$110 END SUBROUTINE
+$------------------- REFERENCE ZERO OR ORIGIN SHIFT -------------------------
+$120 ORIGIN SHIFT
+$----------------------------------------------------------------------------
+$130 CANCEL ORIGIN SHIFT
+$----------------------- MACHINE TOOL COMPENSATION --------------------------
+$140 CODE TO CANCEL MACHINE TOOL COMPENSATION
+G40
+$141 CODE FOR LEFT MACHINE TOOL COMPENSATION
+G42
+$142 CODE FOR RIGHT MACHINE TOOL COMPENSATION
+G41
+$145 PERCENTAGE INCREASE IN BLEND RADIUS FOR SHARP INTERNAL CORNERS
+0
+$146 ADJUST G41/42 CODE AT INTERNAL CORNERS FOR TOOL RADIUS (1 = YES 0 = NO)
+1
+$----------------------- COOLANT OFF/MIST/FLOOD/TOOL CODES ------------------
+$150 CODE TO TURN COOLANT OFF
+M09
+$151 CODE TO APPLY MIST COOLANT
+M07
+$152 CODE TO APPLY FLOOD COOLANT
+M08
+$153 CODE TO APPLY THROUGH TOOL COOLANT
+M10
+$------------------------ DRILLING/TAPPING CYCLES ---------------------------
+$200 CANCEL DRILL/TAPPING CYCLE
+$----------------------------------------------------------------------------
+$205 FIRST HOLE IN SUBROUTINE
+N[N] X[AX] Y[-AY]
+$206 NEXT HOLES IN SUBROUTINE
+N[N] X[AX] Y[-AY]
+$--------------------- LIVELLI DI RIFERIMENTO -------------------------------
+[ZR] = LIVELLO RAPID DOWN
+[ZB] = LIVELLO FONDO
+[ZS] = LIVELLO SAFE.
+$---------------- CICLO DI DRILLING (ZS) ------------------------------------
+DRILL CYCLE --> [ZS]=LIVELLO SICUREZZA TRA FORI
+$210 FIRST HOLE
+$LET LASTLAV=0 ''NON SERVE INIZIO E FINE LAVORAZIONE
+$MODAL OFF X Y Z
+$IF WVF=0      ''--> FACCIA SOPRA'
+$GOTO 50       
+$ELSEIF WVF=1  ''-->FACCIA FRONTALE'
+$GOTO 10
+$ELSEIF WVF=2  ''-->FACCIA DESTRA'
+$GOTO 20
+$ELSEIF WVF=3  ''-->FACCIA DIETRO'
+$GOTO 30
+$ELSEIF WVF=4  ''-->FACCIA SINISTRA'
+$GOTO 40
+$ENDIF
+$GOTO 99
+''-------------------------------------------------------------------------------------------------
+$LL10 ''FACCIA FRONTALE (SOLO UNA PUNTA) FO
+$MODAL OFF X Y Z
+$IF [PANEL_Y+YOFFSET]<457
+N[N] QX=[GAX] QY=[PANEL_Y] QZ=[-AY] QQN=2 TH=21 VF=[F] VR=[S] PRF=[-ZB] L=G2
+$ENDIF
+$GOTO 99
+''------------------SCELTA PUNTE IN BASE A DIMENSIONE (PUNTA DA 8) ---------
+$LL11
+$MODAL OFF X Y Z
+$IF [PANEL_Y-AY]>771-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=FRE-8-DX VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF [PANEL_Y-AY]>640-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=19 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF [PANEL_Y-AY]<639-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=6 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ENDIF
+$GOTO 99
+''-------------------------------------------------------------------------------------------------
+$LL20 ''FACCIA DESTRA (SCELTA PUNTE) FO
+$MODAL OFF X Y Z
+$IF T=8
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=27 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$IF T=10
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=23 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$IF T=14
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=25 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$ENDIF
+$GOTO 99
+'-------------------------------------------------------------------------------------------------
+$LL30 ''FACCIA DIETRO (UNICA PUNTA) FO
+$MODAL OFF X Y Z
+N[N] QX=[-AX] QY=[0] QZ=[-AY] QQN=2 TH=22 VF=[F] VR=[S] PRF=[-ZB] L=G4
+$GOTO 99
+'-------------------------------------------------------------------------------------------------
+$LL40 ''FACCIA SINISTRA (SCELTA PUNTE) FO
+$MODAL OFF X Y Z
+$IF T=8
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=28 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ELSEIF T=10
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=26 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ELSEIF T=14
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=24 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ENDIF
+$GOTO 99
+'-------------------------------------------------------------------------------------------------
+$LL50 ''FACCIA SOPRA CON SCELTA PUNTE --> FV
+$MODAL OFF X Y Z
+$IF T=44
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=17 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=5
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=13 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=55
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=20 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=7
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=18 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=77
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=8 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=88
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=11 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=10
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=14 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=100
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=7 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=14
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=12 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=15
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=10 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=20
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=15 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=35
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=2 VF=[F] VR=[S] PRF=[-ZB] L=G99
+''----------------------- SEZIONE FRESA PER FV -----------------------------
+$ELSEIF T=1
+$MODAL OFF X Y Z
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=[TNM] VF=[F] VR=[S] PRF=[-ZB] L=G99
+''----------------------------------------------------------------------------------------------------------
+$ELSEIF T=8
+$MODAL OFF X Y Z
+$GOTO 11 ''(FACCIO COSì PERCHè NON FA IF ANNIDATI)
+$ENDIF
+$GOTO 99
+''----------------------------------------------------------------------------------------------------------
+$LL99 FINE SUB
+''------------------------FORI SUCCESSIVI (ZS) ----------------------------------------------------
+$211 NEXT HOLES ''UGUALE A PRIMO MA ESCE CON CODICE DIVERSO DAL CAD --> RIPETO CODICE
+$LET LASTLAV=0 ''NON SERVE INIZIO E FINE LAVORAZIONE
+$MODAL OFF X Y Z
+$IF WVF=0
+$GOTO 50
+$ELSEIF WVF=1
+$GOTO 10
+$ELSEIF WVF=2
+$GOTO 20
+$ELSEIF WVF=3
+$GOTO 30
+$ELSEIF WVF=4
+$GOTO 40
+$ENDIF
+$GOTO 99
+''------------------------------------------------------------------------------------------------
+$LL10
+$MODAL OFF X Y Z
+$IF [PANEL_Y+YOFFSET]<457
+N[N] QX=[GAX] QY=[PANEL_Y] QZ=[-AY] QQN=2 TH=21 VF=[F] VR=[S] PRF=[-ZB] L=G2
+$ENDIF  
+$GOTO 99
+''------------------------------------------------------------------------------------------------
+$LL11
+$MODAL OFF X Y Z
+$IF [PANEL_Y-AY]>771-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=FRE-8-DX VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF [PANEL_Y-AY]>640-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=19 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF [PANEL_Y-AY]<639-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=6 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ENDIF
+$GOTO 99
+''------------------------------------------------------------------------------------------------
+$LL20
+$MODAL OFF X Y Z
+$IF T=8
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=27 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$IF T=10
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=23 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$IF T=14
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=25 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$ENDIF
+$GOTO 99
+''------------------------------------------------------------------------------------------------
+$LL30
+$MODAL OFF X Y Z
+N[N] QX=[-AX] QY=[0] QZ=[-AY] QQN=2 TH=22 VF=[F] VR=[S] PRF=[-ZB] L=G4
+$GOTO 99
+''------------------------------------------------------------------------------------------------
+$LL40
+$MODAL OFF X Y Z
+$IF T=8
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=28 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ELSEIF T=10
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=26 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ELSEIF T=14
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=24 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ENDIF
+$GOTO 99 
+''------------------------------------------------------------------------------------------------
+$LL50
+$MODAL OFF X Y Z
+$IF T=44
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=17 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=5
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=13 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=55
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=20 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=7
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=18 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=77
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=8 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=88
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=11 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=10
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=14 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=100
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=7 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=14
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=12 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=15
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=10 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=20
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=15 VF=[F/] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=35
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=2 VF=[F] VR=[S] PRF=[-ZB] L=G99
+''-------------------------- FV CON FRESA----------------------------------------------------------
+$ELSEIF T=1
+$MODAL OFF X Y Z
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=[TNM] VF=[F] VR=[S] PRF=[-ZB] L=G99
+''-------------------------- VAI A SCELTA PUNTE ----------------------------------------------------
+$ELSEIF T=8
+$MODAL OFF X Y Z
+$GOTO 11 
+''--------------------------------------------------------------------------------------------------
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL99 FINE SUB
+$------------------- CICLO DI DRILLING (ZR) --------------------------------------------------------
+$214 FIRST HOLE
+$LET LASTLAV=0 ''NON SERVE INIZIO E FINE LAVORAZIONE
+$MODAL OFF X Y Z
+$IF WVF=0
+$GOTO 50 
+$ELSEIF WVF=1
+$GOTO 10
+$ELSEIF WVF=2
+$GOTO 20
+$ELSEIF WVF=3
+$GOTO 30
+$ELSEIF WVF=4
+$GOTO 40
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL10
+$MODAL OFF X Y Z
+$IF [PANEL_Y+YOFFSET]<457
+N[N] QX=[GAX] QY=[PANEL_Y] QZ=[-AY] QQN=2 TH=21 VF=[F] VR=[S] PRF=[-ZB] L=G2
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL11 ''SCELTA PUNTE(DIMENSIONE)
+$MODAL OFF X Y Z
+$IF [PANEL_Y-AY]>771-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=FRE-8-DX VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF [PANEL_Y-AY]>640-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=19 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF [PANEL_Y-AY]<639-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=6 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL20
+$MODAL OFF X Y Z
+$IF T=8
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=27 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$IF T=10
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=23 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$IF T=14
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=25 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL30
+$MODAL OFF X Y Z
+N[N] QX=[-AX] QY=[0] QZ=[-AY] QQN=2 TH=22 VF=[F] VR=[S] PRF=[-ZB] L=G4
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL40
+$MODAL OFF X Y Z
+$IF T=8
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=28 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ELSEIF T=10
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=26 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ELSEIF T=14
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=24 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL50
+$MODAL OFF X Y Z
+$IF T=44
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=17 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=5
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=13 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=55
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=20 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=7
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=18 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=77
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=8 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=88
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=11 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=10
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=14 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=100
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=7 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=14
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=12 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=15
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=10 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=20
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=15 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=35
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=2 VF=[F] VR=[S] PRF=[-ZB] L=G99
+''--------------------------------FV CON FRESE------------------------------------------------------
+$ELSEIF T=1
+$MODAL OFF X Y Z
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=[TNM] VF=[F] VR=[S] PRF=[-ZB] L=G99
+''---------------------- SCELTA PUNTE MISURA -------------------------------------------------------
+$ELSEIF T=8
+$MODAL OFF X Y Z
+$GOTO 11
+''--------------------------------------------------------------------------------------------------
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL99 FINE SUB
+''------------------------ FORI SUCCESSIVI ---------------------------------------------------------
+$215 NEXT HOLES
+$LET LASTLAV=0 ''NON SERVE INIZIO E FINE LAVORAZIONE
+$IF WVF=0
+$GOTO 50
+$ELSEIF WVF=1
+$GOTO 10
+$ELSEIF WVF=2
+$GOTO 20
+$ELSEIF WVF=3
+$GOTO 30
+$ELSEIF WVF=4
+$GOTO 40
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL10
+$MODAL OFF X Y Z
+$IF [PANEL_Y+YOFFSET]<457
+N[N] QX=[GAX] QY=[PANEL_Y] QZ=[-AY] QQN=2 TH=21 VF=[F] VR=[S] PRF=[-ZB] L=G2
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL11
+$MODAL OFF X Y Z
+$IF [PANEL_Y-AY]>771-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=FRE-8-DX VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF [PANEL_Y-AY]>640-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=19 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF [PANEL_Y-AY]<639-YOFFSET
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=6 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL20
+$MODAL OFF X Y Z
+$IF T=8
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=27 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$IF T=10
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=23 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$IF T=14
+N[N] QX=[PANEL_X] QY=[PANEL_Y-AX] QZ=[-AY] QQN=2 TH=25 VF=[F] VR=[S] PRF=[-ZB] L=G3
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL30
+$MODAL OFF X Y Z
+N[N] QX=[-AX] QY=[0] QZ=[AY] QQN=2 TH=22 VF=[F] VR=[S] PRF=[-ZB] L=G4
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL40
+$MODAL OFF X Y Z
+$IF T=8
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=28 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ELSEIF T=10
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=26 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ELSEIF T=14
+N[N] QX=[0] QY=[PANEL_Y+AX] QZ=[-AY] QQN=2 TH=24 VF=[F] VR=[S] PRF=[-ZB] L=G1
+$ENDIF
+$GOTO 99 
+''--------------------------------------------------------------------------------------------------
+$LL50
+$MODAL OFF X Y Z
+$IF T=44
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=17 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=5
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=13 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=55
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=20 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=7
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=18 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=77
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=8 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=88
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=11 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=10
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=14 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=100
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=7 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=14
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=12 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=15
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=10 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=20
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=15 VF=[F] VR=[S] PRF=[-ZB] L=G99
+$ELSEIF T=35
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=2 VF=[F] VR=[S] PRF=[-ZB] L=G99
+''-------------------------------------FV CON FRESA-------------------------------------------------
+$ELSEIF T = 1
+$MODAL OFF X Y Z
+N[N] X[AX] Y[PANEL_Y-AY] QQN=2 TH=[TNM] VF=[F] VR=[S] PRF=[-ZB] L=G99
+''------------------------------- SCELTA PUNTA DIMENSIONE ------------------------------------------
+$ELSEIF T=8
+$MODAL OFF X Y Z
+$GOTO 11
+''--------------------------------------------------------------------------------------------------
+$ENDIF
+$GOTO 99
+''--------------------------------------------------------------------------------------------------
+$LL99 FINE SUB
+''--------------------------------------------------------------------------------------------------
+$216 SET PARAMETERS BEFORE SUBROUTINE CALL (APS WILL INSERT SUBROUTINE CALL)
+$----------------------------------------------------------------------------
+PECKING CYCLE - TRAVERSE TO NEXT HOLE AT SAFE RAPID LEVEL [ZS]
+$220 FIRST HOLE
+$221 NEXT HOLES
+$222 SET PARAMETERS BEFORE SUBROUTINE CALL (APS WILL INSERT SUBROUTINE CALL)
+$----------------------------------------------------------------------------
+PECKING CYCLE - TRAVERSE TO NEXT HOLE AT RETRACT LEVEL [ZR]
+$224 FIRST HOLE
+$225 NEXT HOLES
+$226 SET PARAMETERS BEFORE SUBROUTINE CALL (APS WILL INSERT SUBROUTINE CALL)
+$----------------------------------------------------------------------------
+TAPPING CYCLE - TRAVERSE TO NEXT HOLE AT SAFE RAPID LEVEL [ZS]
+$230 FIRST HOLE
+$231 NEXT HOLES
+$232 SET PARAMETERS BEFORE SUBROUTINE CALL (APS WILL INSERT SUBROUTINE CALL)
+$----------------------------------------------------------------------------
+TAPPING CYCLE -  TRAVERSE TO NEXT HOLE AT RETRACT LEVEL [ZR]
+$234 FIRST HOLE
+$235 NEXT HOLES
+$236 SET PARAMETERS BEFORE SUBROUTINE CALL (APS WILL INSERT SUBROUTINE CALL)
+$----------------------------------------------------------------------------
+BORING/REAMING/SPOT FACE ETC - TRAVERSE TO NEXT HOLE AT SAFE RAPID LEVEL [ZS]
+$240 FIRST HOLE
+$241 NEXT HOLES
+$242 SET PARAMETERS BEFORE SUBROUTINE CALL (APS WILL INSERT SUBROUTINE CALL)
+$----------------------------------------------------------------------------
+BORING/REAMING/SPOT FACE ETC - TRAVERSE TO NEXT HOLE AT RETRACT LEVEL [ZS]
+$244 FIRST HOLE
+$245 NEXT HOLES
+$246 SET PARAMETERS BEFORE SUBROUTINE CALL (APS WILL INSERT SUBROUTINE CALL)$-------------------------- GENERAL FORMATS ---------------------------------
+SEPARATE MODAL VALUES WITH SPACES.  MORE THAN ONE LETTER IS OK EG X VX VY
+$500 MODAL TEXT  (WILL NOT BE REPEATED IN FOLLOWING LINES)
+$502 MODAL ABSOLUTE VALUES (WILL NOT BE REPEATED IF THE VALUE IS THE SAME)
+X Y Z F
+$504 MODAL INCREMENTAL VALUES (WILL NOT BE PUT INTO NC CODE IF VALUE IS ZERO)
+I J ZI
+$510 X Y Z I J K VALUES MUST HAVE + AS WELL AS - SIGNS (1 = YES, 0 = NO)
+0
+$515 USE POINT <.> AS DECIMAL SEPARATOR (1 = YES, 0 = USE COMMA <,>)
+1
+$520 PUT SUB-ROUTINES AT END OF MAIN PROGRAM (1 = YES, 0 = PUT AT START)
+1
+$525 QUADRANT LIMIT ARCS (1 = YES, 0 = STANDARD APS 180 DEGREE LIMIT)
+1
+$526 OUTPUT ARCS AS ONE MOVE (1 = YES, 0 = NO - SPLIT ARCS >= 180)
+0
+$530 OUTPUT ARCS AS STRAIGHT LINE SEGMENTS (1 = YES, 0 = NO)
+0
+$531 MAXIMUM ARC RADIUS - ARCS WILL BE OUTPUT AS STRAIGHT LINES IF RADIUS >
+0
+$532 IF ARCS ARE STRAIGHT LINE SEGMENTS, GIVE CHORD ERROR (MM OR INCHES)
+.1
+$540 SUPPRESS OPERATIONS LIST, START AND COMMENTS IN NC CODE (1 = YES, 0 = NO)
+1
+$560 4/5 AXIS PROGRAMMING POINT: (1 = PIVOT, 0 = TOOL TIP)
+0
+$562 4/5 AXIS TOOL C/L OFFSET FROM PIVOT POINT IN X
+0
+$563 4/5 AXIS TOOL C/L OFFSET FROM PIVOT POINT IN Y
+0
+$565 4/5 AXIS TOOL HOLDER LENGTH
+0
+$570 4/5 AXIS MAX ANGLE (DEGREES). SET TO 0 TO INDICATE 3 - AXIS MACHINE.
+0
+$580 IS THIS A HORIZONTAL MACHINING CENTRE (1 = YES, 0 = NO)
+1
+$582 HORIZONTAL M/C. SELECT WORK PLANE BEFORE TOOL CHANGE (1 = YES, 0 = NO)
+0
+$-------------------------- NUMBER FORMATS ----------------------------------
+$700 SUBROUTINE NUMBER FORMAT
+6
+$701 LEADING FIGURES
+0
+$702 FIGURES AFTER POINT
+0
+$705 SUBROUTINE START NUMBER
+10
+$----------------------------------------------------------------------------
+$710 LINE NUMBER FORMAT
+6
+$711 LEADING FIGURES
+0
+$712 FIGURES AFTER POINT
+0
+$715 LINE START NUMBER
+10
+$716 LINE NUMBER INCREMENT
+10
+$----------------------------------------------------------------------------
+$720 X Y Z VALUES FORMAT
+1
+$721 LEADING FIGURES
+0
+$722 FIGURES AFTER POINT
+3
+$----------------------------------------------------------------------------
+$730 ARC CENTRE/RADIUS FORMAT
+1
+$731 LEADING FIGURES
+0
+$732 FIGURES AFTER POINT
+3
+$----------------------------------------------------------------------------
+$740 SPINDLE SPEED FORMAT
+1
+$741 LEADING FIGURES
+0
+$742 FIGURES AFTER POINT
+0
+$743 MAXIMUM SPINDLE SPEED
+24000
+$744 FIXED SPEEDS (EG 100, 200, 1000, 2000 ...      0 = SPEED IS VARIABLE)
+0
+$NOTE: FIXED SPEEDS CAN USE MORE THAN ONE LINE. 80 CHARS PER LINE MAXIMUM
+       APS WILL SELECT THE NEAREST LOWER VALUE TO THE CALCULATED VALUE.
+       $745 BELOW ONLY APPLIES IF $744 IS 0 - IE VARIABLE SPEED RANGE.
+$745 ROUND SPEED UP/DOWN TO NEAREST: (.1 OR 1 OR 10 ...  0 = DON'T ROUND)
+100
+$----------------------------------------------------------------------------
+$750 MACHINING FEED FORMAT
+1'' ERA 6 FUNZIONA CON 1
+$751 LEADING FIGURES
+0'' ERA 0 FUNZIONA CON 6
+$752 FIGURES AFTER POINTX
+3'' ERA 0 FUNZIONA CON 3
+$753 MAXIMUM FEED RATE (USE MM/MIN OR IN/MIN AS APPROPRIATE FOR THIS POST)
+10000  MM/MIN
+$755 ROUND FEED UP/DOWN TO NEAREST: (.1 OR 1 OR 10 ...  0 = DON'T ROUND)
+10
+$----------------------------------------------------------------------------
+$760 TOOL NUMBER FORMAT
+6
+$761 LEADING FIGURES
+0
+$762 FIGURES AFTER POINT
+0
+$------------------------ RAPIDS AND TOOL CHANGE TIMES ----------------------
+USE MM/MIN OR IN/MIN AS APPROPRIATE FOR THIS POST.
+$900 XY RAPID SPEED
+75000 MM/MIN
+$901 Z RAPID SPEED
+1500 MM/MIN
+$902 TIME TO CHANGE TOOL (SECONDS)
+10
+$--------------------------- USER VARIABLES ---------------------------------
+$1000  VARIABLE  (FORMAT)
+FNAME ("")
+XOFFSET (1,0,2)''PASSATA DAL VBA
+YOFFSET (1,0,2)''PASSATA DAL VBA
+PANEL_X (1,0,2)''PASSATA DAL VBA
+PANEL_Y (1,0,2)''PASSATA DAL VBA
+PANEL_Z (1,0,2)''PASSATA DAL VBA
+ROUTER (6,0,0) <1> ''INTERRUTTORE ROUTING INDIPENDENTE
+ENGRAVE (6,0,0) <1> ''INTERRUTTORE ENGRAVE INDIPENDENTE
+FIRSTRAPID (6,0,0) <1> ''INTERRUTTORE PRIMO RAPIDO (HEADER)
+FIRSTWORK (6,0,0) <1> ''INTERRUTTORE PRIMA LAVORAZIONE (HEADER)
+MON (6,0,0) <0> ''CONTATORE PER G0 DA ORIGINE MACCHINA
+LASTLAV (6,0,0) <0> ''INTERRUTTORE PER SETTARE INIZIO E FINE LAVORAZIONI
+DELTA (1,0,2) <0.06> ''VARIAZIONE PER FARE MOVIMENTI IN VERTICALE
+D_X (1,0,2) ''VARIABILE CALCOLO DELTA X
+D_Y (1,0,2) ''VARIABILE CALCOLO DELTA Y
+D_Z (1,0,2) ''VARIABILE CALCOLO DELTA Z
+''------- PARAMETRI DA SETTARE PER FILTRARE LINEE CORTE ---------------------
+D_X_REF (1,0,2) <0> ''MINIMA LUNGHEZZA X
+D_Y_REF (1,0,2) <0> ''MINIMA LUNGHEZZA Y
+D_Z_REF (1,0,2) <0> ''MINIMO SPESSORE Z
+''------- RIFERIMENTI PER CAMBIARE TRA INCISIONI E ROUTING ------------------
+DIST_REF (1,0,2)    ''IN [MM] PARAMETRO TUNING --> CAMBIA
+DIST (1,0,2) <1000000> ''INIZIALIZZO ALTISSIMO PER ENTRARE LA PRIMA VOLTA (NON TOCCARE)             
+$ ---------------------- FINE------------------------------------------------
